@@ -19,10 +19,13 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import SettingsIcon from "@mui/icons-material/Settings";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import { fetchNewsExcerpt } from "./news/rss";
+import { buildVocabularyList, rewriteForLearner } from "./news/openrouter";
 
 const JSON_PATH = "/A2_B1_wordlist_enriched_v3.json";
 const PROGRESS_KEY = "wordlist-progress";
@@ -33,6 +36,8 @@ const DEFAULT_SETTINGS = {
   voiceId: "JBFqnCBsd6RMkjVDRZzb",
   modelId: "eleven_v3",
   speed: 0.7,
+  openRouterApiKey: "",
+  openRouterModel: "google/gemini-2.5-flash",
 };
 
 function clampSpeed(speed) {
@@ -106,6 +111,11 @@ export default function App() {
   const [draftSettings, setDraftSettings] = useState(settings);
   const [loading, setLoading] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsError, setNewsError] = useState("");
+  const [newsData, setNewsData] = useState(null);
+  const [feedOffset, setFeedOffset] = useState(0);
+  const newsCacheRef = useRef({});
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -129,6 +139,45 @@ export default function App() {
 
   const entry = words[index];
   const total = words.length;
+  const isNewsCheckpoint = total > 0 && (index + 1) % 10 === 0;
+
+  async function loadNews({ refresh = false } = {}) {
+    if (!words.length || !isNewsCheckpoint) return;
+
+    const cacheKey = String(index);
+    if (!refresh && newsCacheRef.current[cacheKey]) {
+      setNewsData(newsCacheRef.current[cacheKey]);
+      setNewsError("");
+      return;
+    }
+
+    const offset = refresh ? feedOffset : 0;
+    setNewsLoading(true);
+    setNewsError("");
+    try {
+      const { excerpt, source, title } = await fetchNewsExcerpt(offset);
+      const vocabulary = buildVocabularyList(words, index);
+      const rewritten = await rewriteForLearner(excerpt, vocabulary, settings);
+      const data = { excerpt, rewritten, source, title, vocabularyCount: vocabulary.length };
+      newsCacheRef.current[cacheKey] = data;
+      setNewsData(data);
+      if (refresh) setFeedOffset((o) => (o + 1) % 5);
+    } catch (err) {
+      setNewsError(err.message);
+      if (!refresh) setNewsData(null);
+    } finally {
+      setNewsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isNewsCheckpoint || !words.length) {
+      setNewsData(null);
+      setNewsError("");
+      return;
+    }
+    loadNews();
+  }, [index, words.length, isNewsCheckpoint]);
 
   function goTo(i) {
     if (!total) return;
@@ -281,6 +330,58 @@ export default function App() {
           </Button>
         </Stack>
 
+        {isNewsCheckpoint && (
+          <Card elevation={2} sx={{ mt: 3 }}>
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Typography variant="h6">News reading</Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={() => loadNews({ refresh: true })}
+                    disabled={newsLoading}
+                  >
+                    Refresh
+                  </Button>
+                </Stack>
+
+                {newsLoading && (
+                  <Box display="flex" justifyContent="center" py={2}>
+                    <CircularProgress size={28} />
+                  </Box>
+                )}
+
+                {newsError && !newsLoading && (
+                  <Typography color="error" variant="body2">{newsError}</Typography>
+                )}
+
+                {newsData && !newsLoading && (
+                  <Stack spacing={1.5}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Chip label={newsData.source} size="small" color="secondary" />
+                      <Chip
+                        label={`${newsData.vocabularyCount} words in vocabulary`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Stack>
+                    {newsData.title && (
+                      <Typography variant="subtitle2" color="text.secondary">
+                        {newsData.title}
+                      </Typography>
+                    )}
+                    <Typography variant="body1" sx={{ fontSize: "1.05rem", lineHeight: 1.7 }}>
+                      {newsData.rewritten}
+                    </Typography>
+                  </Stack>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mt: 2 }}>
           <TextField
             size="small"
@@ -319,6 +420,20 @@ export default function App() {
               fullWidth
               value={draftSettings.apiKey}
               onChange={(e) => setDraftSettings({ ...draftSettings, apiKey: e.target.value })}
+            />
+            <TextField
+              label="OpenRouter API Key"
+              type="password"
+              fullWidth
+              value={draftSettings.openRouterApiKey}
+              onChange={(e) => setDraftSettings({ ...draftSettings, openRouterApiKey: e.target.value })}
+              helperText="Required for news rewriting at every 10th word."
+            />
+            <TextField
+              label="OpenRouter model"
+              fullWidth
+              value={draftSettings.openRouterModel}
+              onChange={(e) => setDraftSettings({ ...draftSettings, openRouterModel: e.target.value })}
             />
             <TextField
               label="Voice ID"
