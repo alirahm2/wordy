@@ -139,7 +139,7 @@ export default function App() {
 
   const entry = words[index];
   const total = words.length;
-  const isNewsCheckpoint = total > 0 && (index + 1) % 10 === 0;
+  const isNewsCheckpoint = total > 0 && (index + 1) % 5 === 0;
 
   async function loadNews({ refresh = false } = {}) {
     if (!words.length || !isNewsCheckpoint) return;
@@ -427,7 +427,7 @@ export default function App() {
               fullWidth
               value={draftSettings.openRouterApiKey}
               onChange={(e) => setDraftSettings({ ...draftSettings, openRouterApiKey: e.target.value })}
-              helperText="Required for news rewriting at every 10th word."
+              helperText="Required for news rewriting at every 5th word."
             />
             <TextField
               label="OpenRouter model"

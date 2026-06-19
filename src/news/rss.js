@@ -6,8 +6,8 @@ const RSS_FEEDS = [
   { id: "spiegel", name: "Der Spiegel", path: "/api/rss/spiegel" },
 ];
 
-const MIN_WORDS = 52;
-const MAX_WORDS = 78;
+const MIN_WORDS = 90;
+const MAX_WORDS = 140;
 
 function stripHtml(html) {
   return normalizeText(
@@ -118,7 +118,7 @@ export async function fetchNewsExcerpt(feedOffset = 0) {
     }
   }
 
-  throw new Error("No article with 52–78 words found. Try refresh.");
+  throw new Error("No article with 90–140 words found. Try refresh.");
 }
 
 export { RSS_FEEDS, MIN_WORDS, MAX_WORDS };
