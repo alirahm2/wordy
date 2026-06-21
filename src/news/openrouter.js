@@ -1,55 +1,42 @@
-const EDITOR_PROMPT = `You are an expert educational editor.
+const EDITOR_PROMPT = `You are an expert educational editor and German news rewriter for a language learner.
 
-Your task is to rewrite a text for a learner with a limited vocabulary.
+You receive:
+* Original text — a real news article fetched from an RSS feed.
+* Allowed vocabulary list — every word the learner has already reviewed. These are the words the learner understands.
+* Required vocabulary (last 3 batches) — the words the learner reviewed most recently. The rewritten text MUST include these words.
 
-INPUT:
+PROCESS (perform internally):
+1. Read the Original text and fully comprehend its meaning, facts, and context.
+2. Rewrite it in German so it keeps the SAME meaning, context, facts, and order of ideas as the Original text.
+3. The rewritten text MUST naturally include EVERY word from the Required vocabulary list, used correctly in context.
+4. Prefer words from the Allowed vocabulary list. When an idea has no allowed word, express it with the simplest possible words.
 
-* Original text
-* Allowed vocabulary list
-* Focus vocabulary (the words the learner most recently reviewed)
-
-OBJECTIVE:
-Rewrite the text so that it conveys the same meaning, facts, ideas, and narrative flow as the original text while using only words from the allowed vocabulary list whenever possible. Actively use the learner's reviewed vocabulary so the rewritten text reinforces the words they are studying.
+FALLBACK (only if needed):
+* If the Original text's topic genuinely cannot be rewritten to naturally include the Required vocabulary, do NOT force the words in awkwardly.
+* Instead, write a different, plausible news report about a recent event (something that could realistically have happened in the last 3 days, any topic) whose subject NATURALLY fits the Required vocabulary.
+* This fallback text must still read like a real, factual news report, must include every Required vocabulary word, and must stay within the Allowed vocabulary.
 
 LENGTH:
+* Keep roughly the same length as the Original text. Do not pad it out and do not shorten it significantly.
 
-* The rewritten text MUST be longer and more detailed than the original.
-* Expand on the facts already present by explaining them more fully with the allowed vocabulary. Use several full paragraphs.
-* Do NOT add new facts to reach the length; instead describe the existing facts more thoroughly with simple sentences.
-
-VOCABULARY USAGE (most important):
-
-* Use only words from the allowed vocabulary list.
-* You MUST incorporate as many words from the focus vocabulary as naturally possible, while keeping the meaning correct.
-* Prefer the learner's reviewed words over synonyms whenever they fit.
-* You may change sentence structure as needed to stay within the vocabulary.
-* If a concept cannot be expressed exactly, preserve the meaning as closely as possible using available words.
-
-IMPORTANT:
-
-* Do NOT output concepts or bullet points.
-* Preserve the original structure, order of ideas, paragraph breaks, and storytelling flow.
-* The final result should feel like the same text written for a younger reader.
-* Keep all important information.
-* If a word or concept is not available in the allowed vocabulary, express the same idea using simpler allowed words.
-* Prefer short sentences.
-* Prefer active voice.
-* Avoid abstract language when a concrete alternative exists.
-* Do not introduce new facts.
-* Do not remove important facts.
+STYLE:
+* Write like a real news report: same kind of structure, order of ideas, and paragraph breaks.
+* Prefer short sentences and active voice.
+* Use concrete language; avoid abstract wording when a concrete alternative exists.
+* Do NOT output bullet points, concepts, or lists.
+* When rewriting the Original text, do not introduce new facts and do not remove important facts. (Only the fallback may introduce a new topic.)
 
 QUALITY CHECK (perform internally):
-
-1. Read and understand the original text.
-2. Identify all key facts and relationships.
-3. Rewrite using the allowed vocabulary, weaving in the focus vocabulary.
-4. Verify that the rewritten version preserves the original meaning.
-5. Verify that the rewritten version is longer and more detailed than the original.
-6. Verify that no disallowed vocabulary appears in the final text.
+1. Did you preserve the meaning and context (or, in fallback, write a believable recent news report)?
+2. Does every Required vocabulary word appear, used correctly?
+3. Does the text stay within the Allowed vocabulary as much as possible?
+4. Is the length close to the original?
 
 OUTPUT:
-Return only the rewritten text.
-Do not include explanations, notes, reasoning, or comments.`;
+Return ONLY the final German text. Do not include explanations, notes, reasoning, labels, or comments.`;
+
+const BATCH_SIZE = 5;
+const BATCHES_INCLUDED = 3;
 
 export function buildVocabularyList(wordEntries, currentIndex) {
   return wordEntries.slice(0, currentIndex + 1).map((entry) => entry.word);
@@ -61,7 +48,7 @@ export async function rewriteForLearner(originalText, vocabulary, settings) {
   }
 
   const model = settings.openRouterModel || "google/gemini-2.5-flash";
-  const focusVocabulary = vocabulary.slice(-40);
+  const requiredVocabulary = vocabulary.slice(-(BATCH_SIZE * BATCHES_INCLUDED));
   const userMessage = `${EDITOR_PROMPT}
 
 Original text:
@@ -70,8 +57,8 @@ ${originalText}
 Allowed vocabulary list:
 ${vocabulary.join(", ")}
 
-Focus vocabulary (most recently reviewed — use these as much as naturally possible):
-${focusVocabulary.join(", ")}`;
+Required vocabulary (last ${BATCHES_INCLUDED} batches — every one of these MUST appear in the rewritten text):
+${requiredVocabulary.join(", ")}`;
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
