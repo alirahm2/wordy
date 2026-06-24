@@ -27,6 +27,35 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import { fetchNewsExcerpt } from "./news/rss";
 import { buildVocabularyList, rewriteForLearner } from "./news/openrouter";
 
+function HighlightedNews({ text }) {
+  const parts = String(text).split(/(\[\[[^\]]+\]\])/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const match = part.match(/^\[\[([^\]]+)\]\]$/);
+        if (match) {
+          return (
+            <Box
+              key={i}
+              component="mark"
+              sx={{
+                backgroundColor: "warning.light",
+                color: "inherit",
+                px: 0.4,
+                borderRadius: 0.5,
+                fontWeight: 600,
+              }}
+            >
+              {match[1]}
+            </Box>
+          );
+        }
+        return part;
+      })}
+    </>
+  );
+}
+
 const JSON_PATH = "/A2_B1_wordlist_enriched_v3.json";
 const PROGRESS_KEY = "wordlist-progress";
 const SETTINGS_KEY = "wordlist-settings";
@@ -372,8 +401,12 @@ export default function App() {
                         {newsData.title}
                       </Typography>
                     )}
-                    <Typography variant="body1" sx={{ fontSize: "1.05rem", lineHeight: 1.7 }}>
-                      {newsData.rewritten}
+                    <Typography
+                      variant="body1"
+                      component="div"
+                      sx={{ fontSize: "1.05rem", lineHeight: 1.7, whiteSpace: "pre-wrap" }}
+                    >
+                      <HighlightedNews text={newsData.rewritten} />
                     </Typography>
                   </Stack>
                 )}

@@ -11,9 +11,13 @@ PROCESS (perform internally):
 3. The rewritten text MUST naturally include EVERY word from the Required vocabulary list, used correctly in context. This is a hard requirement: 100% of required vocabulary words must appear.
 4. Prefer words from the Allowed vocabulary list as much as possible. The final text should be built mostly from known vocabulary, not from new words. When an idea has no allowed word, express it with the simplest possible words.
 5. Mark vocabulary words in the final text:
+   * ONLY mark words that appear in the Required vocabulary list sent below (the learner's most recently practiced words).
    * Wrap every Required vocabulary word with double square brackets, like [[Beispiel]].
-   * Also wrap other meaningful words from the Allowed vocabulary list when you use them.
+   * Do NOT mark words from the Allowed vocabulary list, and do NOT mark any word that is not in the Required vocabulary list.
    * Keep the marker around the exact German word form that appears in the sentence.
+
+Example of correct marking (assuming only "Mann" and "Arbeit" are in the Required vocabulary list):
+Der [[Mann]] geht zur [[Arbeit]].
 
 FALLBACK (only if needed):
 * If the Original text's topic genuinely cannot be rewritten to naturally include 100% of the Required vocabulary, do NOT force the words in awkwardly.
@@ -21,7 +25,9 @@ FALLBACK (only if needed):
 * This fallback text must still read like a real, factual news report, must include every Required vocabulary word, must mark vocabulary words, and must stay within the Allowed vocabulary.
 
 LENGTH:
-* Keep roughly the same length as the Original text when possible. If needed, make the text slightly longer so that 100% of the Required vocabulary appears naturally.
+* The rewritten text MUST be between 20 and 30 lines long (counting wrapped sentences/paragraphs, not counting blank lines).
+* Adjust detail, context, and elaboration of the same facts — without inventing contradicting facts — so the text fits within this 20-30 line range.
+* Do NOT exceed 30 lines, and do NOT produce fewer than 20 lines.
 
 STYLE:
 * Write like a real news report: same kind of structure, order of ideas, and paragraph breaks.
@@ -33,9 +39,9 @@ STYLE:
 QUALITY CHECK (perform internally):
 1. Did you preserve the meaning and context (or, in fallback, write a believable recent news report)?
 2. Does every Required vocabulary word appear, used correctly and marked with [[...]]?
-3. Are meaningful words from the Allowed vocabulary marked when used?
+3. Are ONLY Required vocabulary words marked with [[...]], and no Allowed-vocabulary or other words highlighted?
 4. Does the text stay within the Allowed vocabulary as much as possible?
-5. Is the length close to the original, unless extra length was needed for natural 100% vocabulary coverage?
+5. Is the text between 20 and 30 lines long?
 
 OUTPUT:
 Return ONLY the final German text. Do not include explanations, notes, reasoning, labels, or comments.`;
@@ -54,9 +60,18 @@ export async function rewriteForLearner(originalText, vocabulary, settings) {
 
   const model = settings.openRouterModel || "google/gemini-2.5-flash";
   const requiredVocabulary = vocabulary.slice(-(BATCH_SIZE * BATCHES_INCLUDED));
-  const userMessage = `${EDITOR_PROMPT}
 
-Original text:
+  // Diagnostics: confirm what is actually being sent to the model.
+  console.log(
+    "[rewriteForLearner] allowed:",
+    vocabulary.length,
+    "required:",
+    requiredVocabulary.length,
+    "originalText chars:",
+    originalText?.length ?? 0
+  );
+
+  const userMessage = `Original text:
 ${originalText}
 
 Allowed vocabulary list:
@@ -75,9 +90,12 @@ ${requiredVocabulary.join(", ")}`;
     },
     body: JSON.stringify({
       model,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: EDITOR_PROMPT },
+        { role: "user", content: userMessage },
+      ],
       temperature: 0.4,
-      max_tokens: 1500,
+      max_tokens: 3000,
     }),
   });
 
@@ -87,7 +105,19 @@ ${requiredVocabulary.join(", ")}`;
   }
 
   const data = await res.json();
-  const text = data.choices?.[0]?.message?.content?.trim();
+  const choice = data.choices?.[0];
+  const text = choice?.message?.content?.trim();
+
+  // Diagnostics: surface truncation and whether the model marked anything.
+  console.log(
+    "[rewriteForLearner] finish_reason:",
+    choice?.finish_reason,
+    "output chars:",
+    text?.length ?? 0,
+    "contains markers:",
+    text ? text.includes("[[") : false
+  );
+
   if (!text) throw new Error("OpenRouter returned an empty response");
   return text;
 }
