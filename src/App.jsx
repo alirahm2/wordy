@@ -27,30 +27,66 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import { fetchNewsExcerpt } from "./news/rss";
 import { buildVocabularyList, rewriteForLearner } from "./news/openrouter";
 
-function HighlightedNews({ text }) {
+const HIGHLIGHT_STOPWORDS = new Set([
+  "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem",
+  "einer", "eines", "ist", "hat", "und", "oder", "sich", "zu",
+]);
+
+function normalizeWord(token) {
+  return token.toLowerCase().replace(/[^a-zäöüß]/g, "");
+}
+
+function buildRequiredForms(required) {
+  const forms = new Set();
+  (required || []).forEach((entry) => {
+    String(entry)
+      .split(/[,/]/)
+      .forEach((part) => {
+        part.split(/\s+/).forEach((tok) => {
+          if (tok.trim().startsWith("-")) return;
+          const w = normalizeWord(tok);
+          if (w.length >= 3 && !HIGHLIGHT_STOPWORDS.has(w)) forms.add(w);
+        });
+      });
+  });
+  return forms;
+}
+
+function isRequiredWord(token, forms) {
+  const t = normalizeWord(token);
+  if (!t) return false;
+  if (forms.has(t)) return true;
+  for (const f of forms) {
+    if (f.length >= 4 && (t.startsWith(f) || f.startsWith(t))) return true;
+  }
+  return false;
+}
+
+function HighlightedNews({ text, required }) {
+  const forms = buildRequiredForms(required);
   const parts = String(text).split(/(\[\[[^\]]+\]\])/g);
   return (
     <>
       {parts.map((part, i) => {
         const match = part.match(/^\[\[([^\]]+)\]\]$/);
-        if (match) {
-          return (
-            <Box
-              key={i}
-              component="mark"
-              sx={{
-                backgroundColor: "warning.light",
-                color: "inherit",
-                px: 0.4,
-                borderRadius: 0.5,
-                fontWeight: 600,
-              }}
-            >
-              {match[1]}
-            </Box>
-          );
-        }
-        return part;
+        if (!match) return part;
+        const word = match[1];
+        if (!isRequiredWord(word, forms)) return word;
+        return (
+          <Box
+            key={i}
+            component="mark"
+            sx={{
+              backgroundColor: "warning.light",
+              color: "inherit",
+              px: 0.4,
+              borderRadius: 0.5,
+              fontWeight: 600,
+            }}
+          >
+            {word}
+          </Box>
+        );
       })}
     </>
   );
@@ -186,8 +222,8 @@ export default function App() {
     try {
       const { excerpt, source, title } = await fetchNewsExcerpt(offset);
       const vocabulary = buildVocabularyList(words, index);
-      const rewritten = await rewriteForLearner(excerpt, vocabulary, settings);
-      const data = { excerpt, rewritten, source, title, vocabularyCount: vocabulary.length };
+      const { text: rewritten, required } = await rewriteForLearner(excerpt, vocabulary, settings);
+      const data = { excerpt, rewritten, required, source, title, vocabularyCount: vocabulary.length };
       newsCacheRef.current[cacheKey] = data;
       setNewsData(data);
       if (refresh) setFeedOffset((o) => (o + 1) % 5);
@@ -406,7 +442,7 @@ export default function App() {
                       component="div"
                       sx={{ fontSize: "1.05rem", lineHeight: 1.7, whiteSpace: "pre-wrap" }}
                     >
-                      <HighlightedNews text={newsData.rewritten} />
+                      <HighlightedNews text={newsData.rewritten} required={newsData.required} />
                     </Typography>
                   </Stack>
                 )}

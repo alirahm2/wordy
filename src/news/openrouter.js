@@ -3,7 +3,7 @@ const EDITOR_PROMPT = `You are an expert educational editor and German news rewr
 You receive:
 * Original text — a real news article fetched from an RSS feed.
 * Allowed vocabulary list — every word the learner has already reviewed. These are the words the learner understands.
-* Required vocabulary (last 10 batches) — the words the learner reviewed most recently. The rewritten text MUST include 100% of these words.
+* Required vocabulary (last few batches) — the words the learner reviewed most recently. The rewritten text MUST include 100% of these words.
 
 PROCESS (perform internally):
 1. Read the Original text and fully comprehend its meaning, facts, and context.
@@ -47,7 +47,7 @@ OUTPUT:
 Return ONLY the final German text. Do not include explanations, notes, reasoning, labels, or comments.`;
 
 const BATCH_SIZE = 5;
-const BATCHES_INCLUDED = 10;
+const BATCHES_INCLUDED = 5;
 
 export function buildVocabularyList(wordEntries, currentIndex) {
   return wordEntries.slice(0, currentIndex + 1).map((entry) => entry.word);
@@ -119,5 +119,5 @@ ${requiredVocabulary.join(", ")}`;
   );
 
   if (!text) throw new Error("OpenRouter returned an empty response");
-  return text;
+  return { text, required: requiredVocabulary };
 }
