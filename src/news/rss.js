@@ -1,9 +1,9 @@
 const RSS_FEEDS = [
-  { id: "spektrum", name: "Spektrum der Wissenschaft", path: "/api/rss/spektrum" },
-  { id: "geo", name: "GEO", path: "/api/rss/geo" },
-  { id: "zeit", name: "ZEIT Online", path: "/api/rss/zeit" },
-  { id: "sz", name: "Süddeutsche Zeitung", path: "/api/rss/sz" },
-  { id: "spiegel", name: "Der Spiegel", path: "/api/rss/spiegel" },
+  { id: "spektrum", name: "Spektrum der Wissenschaft", path: "/api/rss/spektrum", weight: 1 },
+  { id: "geo", name: "GEO", path: "/api/rss/geo", weight: 1 },
+  { id: "zeit", name: "ZEIT Online", path: "/api/rss/zeit", weight: 4 },
+  { id: "sz", name: "Süddeutsche Zeitung", path: "/api/rss/sz", weight: 4 },
+  { id: "spiegel", name: "Der Spiegel", path: "/api/rss/spiegel", weight: 4 },
 ];
 
 const MIN_WORDS = 90;
@@ -87,18 +87,23 @@ function shuffle(array) {
   return copy;
 }
 
+function weightedShuffle(array) {
+  return array
+    .map((item) => ({
+      ...item,
+      order: Math.random() ** (1 / (item.weight || 1)),
+    }))
+    .sort((a, b) => b.order - a.order);
+}
+
 async function fetchFeed(feed) {
   const res = await fetch(feed.path);
   if (!res.ok) throw new Error(`${feed.name}: HTTP ${res.status}`);
   return parseRssItems(await res.text());
 }
 
-export async function fetchNewsExcerpt(feedOffset = 0) {
-  const feeds = RSS_FEEDS.map((feed, i) => ({
-    ...feed,
-    order: (i + feedOffset) % RSS_FEEDS.length,
-  }));
-  feeds.sort((a, b) => a.order - b.order);
+export async function fetchNewsExcerpt() {
+  const feeds = weightedShuffle(RSS_FEEDS);
 
   for (const feed of feeds) {
     try {

@@ -179,7 +179,6 @@ export default function App() {
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState("");
   const [newsData, setNewsData] = useState(null);
-  const [feedOffset, setFeedOffset] = useState(0);
   const newsCacheRef = useRef({});
   const audioRef = useRef(null);
 
@@ -216,17 +215,15 @@ export default function App() {
       return;
     }
 
-    const offset = refresh ? feedOffset : 0;
     setNewsLoading(true);
     setNewsError("");
     try {
-      const { excerpt, source, title } = await fetchNewsExcerpt(offset);
+      const { excerpt, source, title } = await fetchNewsExcerpt();
       const vocabulary = buildVocabularyList(words, index);
       const { text: rewritten, required } = await rewriteForLearner(excerpt, vocabulary, settings);
       const data = { excerpt, rewritten, required, source, title, vocabularyCount: vocabulary.length };
       newsCacheRef.current[cacheKey] = data;
       setNewsData(data);
-      if (refresh) setFeedOffset((o) => (o + 1) % 5);
     } catch (err) {
       setNewsError(err.message);
       if (!refresh) setNewsData(null);
