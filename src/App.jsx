@@ -62,6 +62,15 @@ function isRequiredWord(token, forms) {
   return false;
 }
 
+function formatPublishedDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 function HighlightedNews({ text, required }) {
   const forms = buildRequiredForms(required);
   const parts = String(text).split(/(\[\[[^\]]+\]\])/g);
@@ -218,10 +227,19 @@ export default function App() {
     setNewsLoading(true);
     setNewsError("");
     try {
-      const { excerpt, source, title } = await fetchNewsExcerpt();
+      const { excerpt, source, title, link, publishedAt } = await fetchNewsExcerpt();
       const vocabulary = buildVocabularyList(words, index);
       const { text: rewritten, required } = await rewriteForLearner(excerpt, vocabulary, settings);
-      const data = { excerpt, rewritten, required, source, title, vocabularyCount: vocabulary.length };
+      const data = {
+        excerpt,
+        rewritten,
+        required,
+        source,
+        title,
+        link,
+        publishedAt,
+        vocabularyCount: vocabulary.length,
+      };
       newsCacheRef.current[cacheKey] = data;
       setNewsData(data);
     } catch (err) {
@@ -423,6 +441,13 @@ export default function App() {
                   <Stack spacing={1.5}>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       <Chip label={newsData.source} size="small" color="secondary" />
+                      {newsData.publishedAt && (
+                        <Chip
+                          label={formatPublishedDate(newsData.publishedAt)}
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
                       <Chip
                         label={`${newsData.vocabularyCount} words in vocabulary`}
                         size="small"
@@ -430,7 +455,15 @@ export default function App() {
                       />
                     </Stack>
                     {newsData.title && (
-                      <Typography variant="subtitle2" color="text.secondary">
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        component={newsData.link ? "a" : "p"}
+                        href={newsData.link || undefined}
+                        target={newsData.link ? "_blank" : undefined}
+                        rel={newsData.link ? "noreferrer" : undefined}
+                        sx={{ display: "block" }}
+                      >
                         {newsData.title}
                       </Typography>
                     )}

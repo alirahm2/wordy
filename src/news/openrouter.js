@@ -1,4 +1,4 @@
-const EDITOR_PROMPT = `You are an expert educational editor and German news rewriter for a language learner.
+const EDITOR_PROMPT = `You are an expert educational editor and German news rewriter for a B1 CEFR telc exam student.
 
 You receive:
 * Original text — a real news article fetched from an RSS feed.
@@ -7,9 +7,9 @@ You receive:
 
 PROCESS (perform internally):
 1. Read the Original text and fully comprehend its meaning, facts, and context.
-2. Rewrite it in German so it keeps the SAME meaning, context, facts, and order of ideas as the Original text.
+2. Rewrite it in German at CEFR B1 level for telc B1 exam preparation. Keep the main meaning, context, facts, and order of ideas from the Original text.
 3. The rewritten text MUST naturally include EVERY word from the Required vocabulary list, used correctly in context. This is a hard requirement: 100% of required vocabulary words must appear.
-4. Prefer words from the Allowed vocabulary list as much as possible. The final text should be built mostly from known vocabulary, not from new words. When an idea has no allowed word, express it with the simplest possible words.
+4. Prefer words from the Allowed vocabulary list as much as possible. The final text should be built mostly from known vocabulary, not from new words. When an idea has no allowed word, express it with simple B1 words.
 5. Mark vocabulary words in the final text:
    * ONLY mark words that appear in the Required vocabulary list sent below (the learner's most recently practiced words).
    * Wrap every Required vocabulary word with double square brackets, like [[Beispiel]].
@@ -25,29 +25,34 @@ FALLBACK (only if needed):
 * This fallback text must still read like a real, factual news report, must include every Required vocabulary word, must mark vocabulary words, and must stay within the Allowed vocabulary.
 
 LENGTH:
-* The rewritten text MUST be between 20 and 30 lines long (counting wrapped sentences/paragraphs, not counting blank lines).
-* Adjust detail, context, and elaboration of the same facts — without inventing contradicting facts — so the text fits within this 20-30 line range.
-* Do NOT exceed 30 lines, and do NOT produce fewer than 20 lines.
+* The rewritten text MUST be between 10 and 14 short lines.
+* Each line should usually be one short sentence.
+* Aim for about 90 to 130 words total.
+* Keep the important facts, but remove small details if they make the text too hard.
 
 STYLE:
 * Write like a real news report: same kind of structure, order of ideas, and paragraph breaks.
+* Write at B1 level, suitable for telc B1 reading practice.
 * Prefer short sentences and active voice.
+* Use common words and common connectors: aber, deshalb, danach, trotzdem, weil.
+* Avoid long noun chains, idioms, passive constructions, Konjunktiv I, and C1/C2 vocabulary when possible.
+* If a topic is complex, explain it with concrete people, places, and actions.
 * Use concrete language; avoid abstract wording when a concrete alternative exists.
 * Do NOT output bullet points, concepts, or lists.
-* When rewriting the Original text, do not introduce new facts and do not remove important facts. (Only the fallback may introduce a new topic.)
+* When rewriting the Original text, do not introduce new facts and do not remove important facts. Minor details may be omitted to keep the B1 level. (Only the fallback may introduce a new topic.)
 
 QUALITY CHECK (perform internally):
 1. Did you preserve the meaning and context (or, in fallback, write a believable recent news report)?
 2. Does every Required vocabulary word appear, used correctly and marked with [[...]]?
 3. Are ONLY Required vocabulary words marked with [[...]], and no Allowed-vocabulary or other words highlighted?
 4. Does the text stay within the Allowed vocabulary as much as possible?
-5. Is the text between 20 and 30 lines long?
+5. Is the text between 10 and 14 short lines and easy enough for B1?
 
 OUTPUT:
 Return ONLY the final German text. Do not include explanations, notes, reasoning, labels, or comments.`;
 
 const BATCH_SIZE = 5;
-const BATCHES_INCLUDED = 5;
+const BATCHES_INCLUDED = 2;
 
 export function buildVocabularyList(wordEntries, currentIndex) {
   return wordEntries.slice(0, currentIndex + 1).map((entry) => entry.word);

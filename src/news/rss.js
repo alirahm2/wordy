@@ -8,6 +8,8 @@ const RSS_FEEDS = [
 
 const MIN_WORDS = 90;
 const MAX_WORDS = 140;
+const MAX_ITEM_AGE_DAYS = 14;
+const RECENT_ITEM_POOL_SIZE = 12;
 
 function stripHtml(html) {
   return normalizeText(
@@ -36,6 +38,11 @@ function countWords(text) {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
+function parseDate(value) {
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? null : new Date(time).toISOString();
+}
+
 function takeWordRange(text, min = MIN_WORDS, max = MAX_WORDS) {
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length < min) return null;
@@ -59,7 +66,9 @@ function parseRssItems(xmlText) {
     const title = fieldFromItem(block, "title");
     const description = fieldFromItem(block, "description");
     const content = fieldFromItem(block, "content:encoded") || description;
-    return { title, description, content };
+    const link = fieldFromItem(block, "link") || fieldFromItem(block, "guid");
+    const publishedAt = parseDate(fieldFromItem(block, "pubDate") || fieldFromItem(block, "dc:date"));
+    return { title, description, content, link, publishedAt };
   });
 }
 
@@ -96,8 +105,22 @@ function weightedShuffle(array) {
     .sort((a, b) => b.order - a.order);
 }
 
+function freshestItems(items) {
+  const dated = items
+    .filter((item) => item.publishedAt)
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+
+  if (!dated.length) return shuffle(items);
+
+  const newestAllowedTime = Date.now() - MAX_ITEM_AGE_DAYS * 24 * 60 * 60 * 1000;
+  const recent = dated.filter((item) => Date.parse(item.publishedAt) >= newestAllowedTime);
+  const pool = (recent.length ? recent : dated).slice(0, RECENT_ITEM_POOL_SIZE);
+  return shuffle(pool);
+}
+
 async function fetchFeed(feed) {
-  const res = await fetch(feed.path);
+  const separator = feed.path.includes("?") ? "&" : "?";
+  const res = await fetch(`${feed.path}${separator}t=${Date.now()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`${feed.name}: HTTP ${res.status}`);
   return parseRssItems(await res.text());
 }
@@ -107,7 +130,7 @@ export async function fetchNewsExcerpt() {
 
   for (const feed of feeds) {
     try {
-      const items = shuffle(await fetchFeed(feed));
+      const items = freshestItems(await fetchFeed(feed));
       for (const item of items) {
         const excerpt = excerptFromItem(item);
         if (excerpt && countWords(excerpt) >= MIN_WORDS) {
@@ -115,6 +138,8 @@ export async function fetchNewsExcerpt() {
             excerpt,
             source: feed.name,
             title: item.title,
+            link: item.link,
+            publishedAt: item.publishedAt,
           };
         }
       }
