@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AppBar,
   Box,
@@ -8,16 +8,20 @@ import {
   Chip,
   CircularProgress,
   Container,
+  CssBaseline,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
   LinearProgress,
+  MenuItem,
   Stack,
   TextField,
+  ThemeProvider,
   Toolbar,
   Typography,
+  createTheme,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -71,7 +75,30 @@ function formatPublishedDate(value) {
   }).format(new Date(value));
 }
 
-function HighlightedNews({ text, required }) {
+const COLOR_THEMES = {
+  green: {
+    label: "Green",
+    palette: { mode: "light", primary: { main: "#2e7d32" }, secondary: { main: "#66bb6a" } },
+  },
+  blue: {
+    label: "Blue",
+    palette: { mode: "light", primary: { main: "#1565c0" }, secondary: { main: "#42a5f5" } },
+  },
+  black: {
+    label: "Black",
+    palette: { mode: "dark", primary: { main: "#90caf9" }, secondary: { main: "#b0bec5" } },
+  },
+  purple: {
+    label: "Purple",
+    palette: { mode: "light", primary: { main: "#6a1b9a" }, secondary: { main: "#ab47bc" } },
+  },
+  amber: {
+    label: "Amber",
+    palette: { mode: "light", primary: { main: "#ef6c00" }, secondary: { main: "#ffb300" } },
+  },
+};
+
+function MarkedNewsWords({ text, required }) {
   const forms = buildRequiredForms(required);
   const parts = String(text).split(/(\[\[[^\]]+\]\])/g);
   return (
@@ -84,13 +111,10 @@ function HighlightedNews({ text, required }) {
         return (
           <Box
             key={i}
-            component="mark"
+            component="strong"
             sx={{
-              backgroundColor: "warning.light",
               color: "inherit",
-              px: 0.4,
-              borderRadius: 0.5,
-              fontWeight: 600,
+              fontWeight: 800,
             }}
           >
             {word}
@@ -98,6 +122,34 @@ function HighlightedNews({ text, required }) {
         );
       })}
     </>
+  );
+}
+
+function NewsText({ text, required }) {
+  const lines = String(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return (
+    <Stack spacing={1.25} alignItems="stretch" textAlign="left">
+      {lines.map((line, i) => {
+        const subtitle = line.match(/^EN:\s*(.+)$/i);
+        if (subtitle) {
+          return (
+            <Typography key={i} variant="body2" color="text.secondary" sx={{ lineHeight: 1.45 }}>
+              {subtitle[1]}
+            </Typography>
+          );
+        }
+
+        return (
+          <Typography key={i} variant="body1" sx={{ fontSize: "1.05rem", lineHeight: 1.7 }}>
+            <MarkedNewsWords text={line} required={required} />
+          </Typography>
+        );
+      })}
+    </Stack>
   );
 }
 
@@ -112,6 +164,7 @@ const DEFAULT_SETTINGS = {
   speed: 0.7,
   openRouterApiKey: "",
   openRouterModel: "google/gemini-2.5-flash",
+  colorTheme: "black",
 };
 
 function clampSpeed(speed) {
@@ -124,6 +177,7 @@ function loadSettings() {
   try {
     const merged = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
     merged.speed = clampSpeed(merged.speed);
+    if (!COLOR_THEMES[merged.colorTheme]) merged.colorTheme = DEFAULT_SETTINGS.colorTheme;
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -190,6 +244,10 @@ export default function App() {
   const [newsData, setNewsData] = useState(null);
   const newsCacheRef = useRef({});
   const audioRef = useRef(null);
+  const theme = useMemo(
+    () => createTheme({ palette: COLOR_THEMES[settings.colorTheme].palette }),
+    [settings.colorTheme]
+  );
 
   useEffect(() => {
     fetch(JSON_PATH)
@@ -265,7 +323,13 @@ export default function App() {
   }
 
   function saveSettings() {
-    const next = { ...draftSettings, speed: clampSpeed(draftSettings.speed) };
+    const next = {
+      ...draftSettings,
+      speed: clampSpeed(draftSettings.speed),
+      colorTheme: COLOR_THEMES[draftSettings.colorTheme]
+        ? draftSettings.colorTheme
+        : DEFAULT_SETTINGS.colorTheme,
+    };
     setDraftSettings(next);
     setSettings(next);
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
@@ -294,22 +358,29 @@ export default function App() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+          <CircularProgress />
+        </Box>
+      </ThemeProvider>
     );
   }
 
   if (!total) {
     return (
-      <Box p={4} textAlign="center">
-        <Typography>Could not load {JSON_PATH}</Typography>
-      </Box>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box p={4} textAlign="center">
+          <Typography>Could not load {JSON_PATH}</Typography>
+        </Box>
+      </ThemeProvider>
     );
   }
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <AppBar position="sticky" color="default" elevation={1}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -470,9 +541,9 @@ export default function App() {
                     <Typography
                       variant="body1"
                       component="div"
-                      sx={{ fontSize: "1.05rem", lineHeight: 1.7, whiteSpace: "pre-wrap" }}
+                      sx={{ textAlign: "left" }}
                     >
-                      <HighlightedNews text={newsData.rewritten} required={newsData.required} />
+                      <NewsText text={newsData.rewritten} required={newsData.required} />
                     </Typography>
                   </Stack>
                 )}
@@ -513,6 +584,19 @@ export default function App() {
         <DialogTitle>Settings</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Color theme"
+              fullWidth
+              value={draftSettings.colorTheme}
+              onChange={(e) => setDraftSettings({ ...draftSettings, colorTheme: e.target.value })}
+            >
+              {Object.entries(COLOR_THEMES).map(([value, themeOption]) => (
+                <MenuItem key={value} value={value}>
+                  {themeOption.label}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               label="ElevenLabs API Key"
               type="password"
@@ -565,6 +649,6 @@ export default function App() {
           <Button variant="contained" onClick={saveSettings}>Save</Button>
         </DialogActions>
       </Dialog>
-    </>
+    </ThemeProvider>
   );
 }

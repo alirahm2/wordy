@@ -15,9 +15,14 @@ PROCESS (perform internally):
    * Wrap every Required vocabulary word with double square brackets, like [[Beispiel]].
    * Do NOT mark words from the Allowed vocabulary list, and do NOT mark any word that is not in the Required vocabulary list.
    * Keep the marker around the exact German word form that appears in the sentence.
+6. After every German sentence, add one English subtitle line starting with "EN: ".
+   * The English subtitle must be a word-by-word learning translation of that German line, not a polished English news sentence.
+   * Keep the English subtitle short and close to the German word order when possible.
+   * Do NOT use [[...]] markers in English subtitle lines.
 
 Example of correct marking (assuming only "Mann" and "Arbeit" are in the Required vocabulary list):
 Der [[Mann]] geht zur [[Arbeit]].
+EN: The man goes to work.
 
 FALLBACK (only if needed):
 * If the Original text's topic genuinely cannot be rewritten to naturally include 100% of the Required vocabulary, do NOT force the words in awkwardly.
@@ -25,8 +30,9 @@ FALLBACK (only if needed):
 * This fallback text must still read like a real, factual news report, must include every Required vocabulary word, must mark vocabulary words, and must stay within the Allowed vocabulary.
 
 LENGTH:
-* The rewritten text MUST be between 10 and 14 short lines.
-* Each line should usually be one short sentence.
+* The rewritten German text MUST contain 8 to 10 short German sentence lines.
+* Each German line should usually be one short sentence.
+* Every German line MUST be followed by exactly one English subtitle line starting with "EN: ".
 * Aim for about 90 to 130 words total.
 * Keep the important facts, but remove small details if they make the text too hard.
 
@@ -41,15 +47,22 @@ STYLE:
 * Do NOT output bullet points, concepts, or lists.
 * When rewriting the Original text, do not introduce new facts and do not remove important facts. Minor details may be omitted to keep the B1 level. (Only the fallback may introduce a new topic.)
 
+OUTPUT FORMAT:
+German sentence with [[required vocabulary]] markers.
+EN: Word-by-word English subtitle for that German sentence.
+German sentence with [[required vocabulary]] markers.
+EN: Word-by-word English subtitle for that German sentence.
+
 QUALITY CHECK (perform internally):
 1. Did you preserve the meaning and context (or, in fallback, write a believable recent news report)?
 2. Does every Required vocabulary word appear, used correctly and marked with [[...]]?
 3. Are ONLY Required vocabulary words marked with [[...]], and no Allowed-vocabulary or other words highlighted?
 4. Does the text stay within the Allowed vocabulary as much as possible?
-5. Is the text between 10 and 14 short lines and easy enough for B1?
+5. Is the German text 8 to 10 short sentence lines and easy enough for B1?
+6. Does every German line have one EN subtitle line immediately after it?
 
 OUTPUT:
-Return ONLY the final German text. Do not include explanations, notes, reasoning, labels, or comments.`;
+Return ONLY the German and EN subtitle lines in the required format. Do not include explanations, notes, reasoning, labels, or comments.`;
 
 const BATCH_SIZE = 5;
 const BATCHES_INCLUDED = 2;
